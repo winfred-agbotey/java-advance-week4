@@ -4,11 +4,11 @@ FROM openjdk:17-jdk-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the built JAR file into the container
+# Copy the JAR file into the container
 COPY target/*.jar core.jar
 
-# Expose the application port (if applicable)
-EXPOSE 8083
+# Expose the application port
+EXPOSE 8080
 
 # Command to run the application
 ENTRYPOINT ["java", "-jar", "core.jar"]
