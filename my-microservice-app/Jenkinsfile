@@ -21,87 +21,22 @@ pipeline {
             }
         }
 
-        stage('Build & Test Modules') {
-            parallel {
-                stage('Build & Test - API') {
-                    steps {
-                        sh '''
-                            cd my-microservice-app/api
-                            mvn clean install
-                        '''
-                    }
-                }
-                stage('Build & Test - Service') {
-                    steps {
-                        sh '''
-                            cd my-microservice-app/service
-                            mvn clean install
-                        '''
-                    }
-                }
-                stage('Build & Test - Core') {
-                    steps {
-                        sh '''
-                            cd my-microservice-app/core
-                            mvn clean install
-                        '''
-                    }
-                }
-                stage('Build & Test - Data Access') {
-                    steps {
-                        sh '''
-                            cd my-microservice-app/data-access
-                            mvn clean install
-                        '''
-                    }
+        stage('Build Modules in Order') {
+            steps {
+                script {
+                    sh '''
+                        cd my-microservice-app/
+                        ls
+                        mvn clean install
+                    '''
                 }
             }
         }
 
-        stage('Build Docker Images') {
-            parallel {
-                stage('Build API Docker Image') {
-                    steps {
-                        sh '''
-                            cd my-microservice-app/api
-                            docker build -t $DOCKER_HUB_REPO/api:latest .
-                        '''
-                    }
-                }
-                stage('Build Service Docker Image') {
-                    steps {
-                        sh '''
-                            cd my-microservice-app/service
-                            docker build -t $DOCKER_HUB_REPO/service:latest .
-                        '''
-                    }
-                }
-                stage('Build Core Docker Image') {
-                    steps {
-                        sh '''
-                            cd my-microservice-app/core
-                            docker build -t $DOCKER_HUB_REPO/core:latest .
-                        '''
-                    }
-                }
-                stage('Build Data Access Docker Image') {
-                    steps {
-                        sh '''
-                            cd my-microservice-app/data-access
-                            docker build -t $DOCKER_HUB_REPO/data-access:latest .
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Push Docker Images to DockerHub') {
+        stage('Build Docker Images to DockerHub') {
             input {
                 message 'Deploy to Production?'
                 ok 'Deploy'
-                parameters {
-                    string(name: 'TARGET_ENV', defaultValue: 'PROD', description: 'Target deployment environment')
-                }
             }
             steps {
                 script {
@@ -111,28 +46,10 @@ pipeline {
                     ]) {
                         sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
 
-                        parallel {
-                            stage('Push API Image') {
-                                steps {
-                                    sh 'docker push $DOCKER_HUB_REPO/api:latest'
-                                }
-                            }
-                            stage('Push Service Image') {
-                                steps {
-                                    sh 'docker push $DOCKER_HUB_REPO/service:latest'
-                                }
-                            }
-                            stage('Push Core Image') {
-                                steps {
-                                    sh 'docker push $DOCKER_HUB_REPO/core:latest'
-                                }
-                            }
-                            stage('Push Data Access Image') {
-                                steps {
-                                    sh 'docker push $DOCKER_HUB_REPO/data-access:latest'
-                                }
-                            }
-                        }
+                        sh 'docker push $DOCKER_HUB_REPO/api:latest'
+                        sh 'docker push $DOCKER_HUB_REPO/service:latest'
+                        sh 'docker push $DOCKER_HUB_REPO/core:latest'
+                        sh 'docker push $DOCKER_HUB_REPO/data-access:latest'
                     }
                 }
             }

@@ -8,7 +8,9 @@
     </parent>
 
     <artifactId>core</artifactId>
+    <packaging>jar</packaging>
 
+    <name>core</name>
     <url>http://maven.apache.org</url>
 
     <properties>
