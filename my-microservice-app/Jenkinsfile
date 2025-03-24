@@ -6,6 +6,7 @@ pipeline {
         DOCKERHUB_CREDENTIALS_USR = credentials('DOCKERHUB_CREDENTIALS_USR')
         DOCKER_HUB_REPO = 'mawulidev'  // Replace with your DockerHub username
         REPO_URL = 'https://github.com/winfred-agbotey/java-advance-week4.git'
+        DOCKER_TAG = 'latest'
     }
 
     stages {
@@ -26,30 +27,49 @@ pipeline {
                 script {
                     sh '''
                         cd my-microservice-app/
-                        ls
                         mvn clean install
                     '''
                 }
             }
         }
 
-        stage('Build Docker Images to DockerHub') {
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    sh '''
+                        cd my-microservice-app/
+
+                         echo "Building Docker images..."
+                                        docker build -t $DOCKER_HUB_REPO/api:$DOCKER_TAG -f api/Dockerfile api/
+                                        docker build -t $DOCKER_HUB_REPO/service:$DOCKER_TAG -f service/Dockerfile service/
+                                        docker build -t $DOCKER_HUB_REPO/core:$DOCKER_TAG -f core/Dockerfile core/
+                                        docker build -t $DOCKER_HUB_REPO/data-access:$DOCKER_TAG -f data-access/Dockerfile data-access/
+                    '''
+                }
+            }
+        }
+
+        stage('Push Docker Images to DockerHub') {
             input {
                 message 'Deploy to Production?'
                 ok 'Deploy'
             }
             steps {
-                script {
-                    withCredentials([
-                        string(credentialsId: 'DOCKERHUB_CREDENTIALS_USR', variable: 'DOCKERHUB_CREDENTIALS_USR'),
-                        string(credentialsId: 'DOCKERHUB_CREDENTIALS_PSW', variable: 'DOCKERHUB_CREDENTIALS_PSW')
-                    ]) {
-                        sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                withCredentials([
+                    string(credentialsId: 'DOCKERHUB_CREDENTIALS_USR', variable: 'DOCKERHUB_CREDENTIALS_USR'),
+                    string(credentialsId: 'DOCKERHUB_CREDENTIALS_PSW', variable: 'DOCKERHUB_CREDENTIALS_PSW')
+                ]) {
+                    script {
+                        sh '''
+                            echo "Logging in to Docker Hub..."
+                            echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
 
-                        sh 'docker push $DOCKER_HUB_REPO/api:latest'
-                        sh 'docker push $DOCKER_HUB_REPO/service:latest'
-                        sh 'docker push $DOCKER_HUB_REPO/core:latest'
-                        sh 'docker push $DOCKER_HUB_REPO/data-access:latest'
+                            echo "Pushing Docker images..."
+                            docker push $DOCKER_HUB_REPO/api:$DOCKER_TAG
+                            docker push $DOCKER_HUB_REPO/service:$DOCKER_TAG
+                            docker push $DOCKER_HUB_REPO/core:$DOCKER_TAG
+                            docker push $DOCKER_HUB_REPO/data-access:$DOCKER_TAG
+                        '''
                     }
                 }
             }
