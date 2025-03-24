@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: ./api
+    container_name: api-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - service
+
+  service:
+    build:
+      context: ./service
+    container_name: service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - data-access
+
+  data-access:
+    build:
+      context: ./data-access
+    container_name: data-access
+    ports:
+      - "8082:8082"
+
+  core:
+    build:
+      context: ./core
+    container_name: core
+    ports:
+      - "8083:8083"
