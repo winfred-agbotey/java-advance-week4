@@ -10,115 +10,107 @@ pipeline {
 
     stages {
         stage('Checkout') {
-                    steps {
-                        script {
-                            checkout([$class: 'GitSCM',
-                                branches: [[name: '*/main']],
-                                userRemoteConfigs: [[url: REPO_URL]],
-                                extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'CloneOption', noTags: false, shallow: true, depth: 1]]
-                            ])
-                        }
-                    }
+            steps {
+                script {
+                    checkout([$class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[url: REPO_URL]],
+                        extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'CloneOption', noTags: false, shallow: true, depth: 1]]
+                    ])
                 }
+            }
+        }
 
         stage('Build & Test Modules') {
             parallel {
                 stage('Build & Test - API') {
                     steps {
-                        script {
-                        echo "Building and testing API modules"
-                            sh 'cd my-microservice-app/api'
-                            sh 'mvn clean package'
-                        }
+                        sh '''
+                            cd my-microservice-app/api
+                            mvn clean install
+                        '''
                     }
                 }
                 stage('Build & Test - Service') {
                     steps {
-                        script {
-                            sh 'cd my-microservice-app/service'
-                            sh 'mvn clean package'
-                        }
+                        sh '''
+                            cd my-microservice-app/service
+                            mvn clean install
+                        '''
                     }
                 }
                 stage('Build & Test - Core') {
                     steps {
-                        script {
-                            sh 'cd my-microservice-app/core'
-                            sh 'mvn clean package'
-                        }
+                        sh '''
+                            cd my-microservice-app/core
+                            mvn clean install
+                        '''
                     }
                 }
                 stage('Build & Test - Data Access') {
                     steps {
-                        script {
-                            sh 'cd my-microservice-app/data-access'
-                            sh 'mvn clean package'
-                        }
+                        sh '''
+                            cd my-microservice-app/data-access
+                            mvn clean install
+                        '''
                     }
                 }
             }
         }
 
-//         stage('Run Code Coverage (JaCoCo)') {
-//             steps {
-//                 sh 'mvn jacoco:report'
-//             }
-//             post {
-//                 always {
-//                     junit '**/target/surefire-reports/*.xml' // Publish test reports
-//                 }
-//             }
-//         }
-
         stage('Build Docker Images') {
             parallel {
                 stage('Build API Docker Image') {
                     steps {
-                        script {
-                            sh 'cd my-microservice-app/api'
-                            sh 'ls'
-                            sh 'docker build -t $DOCKER_HUB_REPO/api:latest .'
-                        }
+                        sh '''
+                            cd my-microservice-app/api
+                            docker build -t $DOCKER_HUB_REPO/api:latest .
+                        '''
                     }
                 }
                 stage('Build Service Docker Image') {
                     steps {
-                        script {
-                            sh 'cd my-microservice-app/service'
-                            sh 'docker build -t $DOCKER_HUB_REPO/service:latest .'
-                        }
+                        sh '''
+                            cd my-microservice-app/service
+                            docker build -t $DOCKER_HUB_REPO/service:latest .
+                        '''
                     }
                 }
                 stage('Build Core Docker Image') {
                     steps {
-                        script {
-                            sh 'cd my-microservice-app/core'
-                            sh 'docker build -t $DOCKER_HUB_REPO/core:latest .'
-                        }
+                        sh '''
+                            cd my-microservice-app/core
+                            docker build -t $DOCKER_HUB_REPO/core:latest .
+                        '''
                     }
                 }
                 stage('Build Data Access Docker Image') {
                     steps {
-                        script {
-                            sh 'cd my-microservice-app/data-access'
-                            sh 'docker build -t $DOCKER_HUB_REPO/data-access:latest .'
-                        }
+                        sh '''
+                            cd my-microservice-app/data-access
+                            docker build -t $DOCKER_HUB_REPO/data-access:latest .
+                        '''
                     }
                 }
             }
         }
 
         stage('Push Docker Images to DockerHub') {
-             input {
+            input {
                 message 'Deploy to Production?'
                 ok 'Deploy'
                 parameters {
-                string(name: 'TARGET_ENV', defaultValue: 'PROD', description: 'Target deployment environment')
+                    string(name: 'TARGET_ENV', defaultValue: 'PROD', description: 'Target deployment environment')
                 }
-             }
+            }
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'DOCKERHUB_CREDENTIALS_USR', variable: 'DOCKERHUB_CREDENTIALS_USR'), string(credentialsId: 'DOCKERHUB_CREDENTIALS_PSW', variable: 'DOCKERHUB_CREDENTIALS_PSW')]) {
+                    withCredentials([
+                        string(credentialsId: 'DOCKERHUB_CREDENTIALS_USR', variable: 'DOCKERHUB_CREDENTIALS_USR'),
+                        string(credentialsId: 'DOCKERHUB_CREDENTIALS_PSW', variable: 'DOCKERHUB_CREDENTIALS_PSW')
+                    ]) {
+                        sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+
                         parallel {
                             stage('Push API Image') {
                                 steps {
@@ -145,21 +137,6 @@ pipeline {
                 }
             }
         }
-
-//         stage('Deploy to Server') {
-//             steps {
-//                 sshagent(['server-ssh-key']) {
-//                     sh '''
-//                         ssh user@your-server '
-//                         docker pull $DOCKER_HUB_REPO/api:latest &&
-//                         docker pull $DOCKER_HUB_REPO/service:latest &&
-//                         docker pull $DOCKER_HUB_REPO/core:latest &&
-//                         docker pull $DOCKER_HUB_REPO/data-access:latest &&
-//                         docker-compose up -d'
-//                     '''
-//                 }
-//             }
-//         }
     }
 
     post {
