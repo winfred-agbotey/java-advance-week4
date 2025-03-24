@@ -7,7 +7,6 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <version>17</version>
     <artifactId>data-access</artifactId>
     <packaging>jar</packaging>
 
