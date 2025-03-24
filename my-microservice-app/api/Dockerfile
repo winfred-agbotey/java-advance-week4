@@ -5,7 +5,7 @@ FROM openjdk:17-jdk-slim
 WORKDIR /app
 
 # Copy the JAR file into the container
-COPY target/api-1.0-SNAPSHOT.jar api.jar
+COPY target/*.jar api.jar
 
 # Expose the application port
 EXPOSE 8080

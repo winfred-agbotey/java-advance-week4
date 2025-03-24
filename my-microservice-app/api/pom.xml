@@ -8,9 +8,6 @@
     </parent>
 
     <artifactId>api</artifactId>
-    <packaging>jar</packaging>
-
-    <name>api</name>
     <url>http://maven.apache.org</url>
 
     <properties>

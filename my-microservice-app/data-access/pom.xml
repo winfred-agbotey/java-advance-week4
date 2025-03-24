@@ -9,9 +9,7 @@
 
     <version>17</version>
     <artifactId>data-access</artifactId>
-    <packaging>jar</packaging>
 
-    <name>data-access</name>
     <url>http://maven.apache.org</url>
 
     <properties>

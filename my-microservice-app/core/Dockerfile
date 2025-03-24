@@ -5,7 +5,7 @@ FROM openjdk:17-jdk-slim
 WORKDIR /app
 
 # Copy the built JAR file into the container
-COPY target/core-1.0-SNAPSHOT.jar core.jar
+COPY target/*.jar core.jar
 
 # Expose the application port (if applicable)
 EXPOSE 8083

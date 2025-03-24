@@ -1,88 +1,173 @@
 pipeline {
-	agent any
+    agent any
 
     environment {
-		MY_ENV_VAR = 'Custom Value'
-        DB_URL = credentials('DB_URL')
-        POSTGRES_DB = credentials('POSTGRES_DB')
-        DB_PASSWORD = credentials('DB_PASSWORD')
-        DB_USERNAME = credentials('DB_USERNAME')
-        DOCKERHUB_CREDENTIALS_PSW = credentials('DOCKERHUB_CREDENTIALS_PSW') // Docker Hub password
-        DOCKERHUB_CREDENTIALS_USR = credentials('DOCKERHUB_CREDENTIALS_USR') // Docker Hub username
-        DOCKER_IMAGE = 'mawulidev/java-advance-week4' // Docker image name
-        DOCKER_TAG = 'latest' // Docker image tag
+        DOCKERHUB_CREDENTIALS_PSW = credentials('DOCKERHUB_CREDENTIALS_PSW')
+        DOCKERHUB_CREDENTIALS_USR = credentials('DOCKERHUB_CREDENTIALS_USR')
+        DOCKER_HUB_REPO = 'mawulidev'  // Replace with your DockerHub username
+        REPO_URL = 'https://github.com/winfred-agbotey/java-advance-week4.git'
     }
 
     stages {
-		stage('Checkout') {
-			steps {
-				script {
-					checkout([$class: 'GitSCM',
-                        branches: [[name: '*/main']],
-                        userRemoteConfigs: [[url: 'https://github.com/winfred-agbotey/javaflupskilling-week5.git']],
-                        extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'CloneOption', noTags: false, shallow: true, depth: 1]],
-                    ])
+        stage('Checkout') {
+                    steps {
+                        script {
+                            checkout([$class: 'GitSCM',
+                                branches: [[name: '*/main']],
+                                userRemoteConfigs: [[url: REPO_URL]],
+                                extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'CloneOption', noTags: false, shallow: true, depth: 1]]
+                            ])
+                        }
+                    }
+                }
+
+        stage('Build & Test Modules') {
+            parallel {
+                stage('Build & Test - API') {
+                    steps {
+                        script {
+                        echo "Building and testing API modules"
+                            sh 'cd my-microservice-app/api'
+                            sh 'mvn clean package'
+                        }
+                    }
+                }
+                stage('Build & Test - Service') {
+                    steps {
+                        script {
+                            sh 'cd my-microservice-app/service'
+                            sh 'mvn clean package'
+                        }
+                    }
+                }
+                stage('Build & Test - Core') {
+                    steps {
+                        script {
+                            sh 'cd my-microservice-app/core'
+                            sh 'mvn clean package'
+                        }
+                    }
+                }
+                stage('Build & Test - Data Access') {
+                    steps {
+                        script {
+                            sh 'cd my-microservice-app/data-access'
+                            sh 'mvn clean package'
+                        }
+                    }
                 }
             }
         }
 
-        stage('Prepare Environment') {
-			steps {
-				configFileProvider([configFile(fileId: 'env-file', targetLocation: '.env')]) {
-					sh 'cat .env' // Verify placement of the .env file
+//         stage('Run Code Coverage (JaCoCo)') {
+//             steps {
+//                 sh 'mvn jacoco:report'
+//             }
+//             post {
+//                 always {
+//                     junit '**/target/surefire-reports/*.xml' // Publish test reports
+//                 }
+//             }
+//         }
+
+        stage('Build Docker Images') {
+            parallel {
+                stage('Build API Docker Image') {
+                    steps {
+                        script {
+                            sh 'cd my-microservice-app/api'
+                            sh 'ls'
+                            sh 'docker build -t $DOCKER_HUB_REPO/api:latest .'
+                        }
+                    }
+                }
+                stage('Build Service Docker Image') {
+                    steps {
+                        script {
+                            sh 'cd my-microservice-app/service'
+                            sh 'docker build -t $DOCKER_HUB_REPO/service:latest .'
+                        }
+                    }
+                }
+                stage('Build Core Docker Image') {
+                    steps {
+                        script {
+                            sh 'cd my-microservice-app/core'
+                            sh 'docker build -t $DOCKER_HUB_REPO/core:latest .'
+                        }
+                    }
+                }
+                stage('Build Data Access Docker Image') {
+                    steps {
+                        script {
+                            sh 'cd my-microservice-app/data-access'
+                            sh 'docker build -t $DOCKER_HUB_REPO/data-access:latest .'
+                        }
+                    }
                 }
             }
         }
 
-        stage('Build') {
-			steps {
-				sh '''
-                echo "In Build Step..."
-                mvn clean install
-                '''
-            }
-        }
-
-        stage('Test') {
-			steps {
-				sh '''
-                echo "In Test Step..."
-                mvn test
-                '''
-            }
-        }
-
-        stage('Docker Build and Push') {
-			input {
-				message 'Do You Want to Deply?'
-				ok 'Yes Deploy!'
-				parameters {
-					string(name: 'TARGET_ENVIRONMENT', defaultValue: 'PROD', description: 'Target deployment environment')
-				}
-			}
-			steps {
-				withCredentials([string(credentialsId: 'DOCKERHUB_CREDENTIALS_USR', variable: 'DOCKERHUB_CREDENTIALS_USR'), string(credentialsId: 'DOCKERHUB_CREDENTIALS_PSW', variable: 'DOCKERHUB_CREDENTIALS_PSW')]) {
-					sh '''
-                    echo "Building Docker image..."
-                    docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
-
-                    echo "Logging in to Docker Hub..."
-                    echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
-
-                    echo "Pushing Docker image to Docker Hub..."
-                    docker push $DOCKER_IMAGE:$DOCKER_TAG
-                    '''
+        stage('Push Docker Images to DockerHub') {
+             input {
+                message 'Deploy to Production?'
+                ok 'Deploy'
+                parameters {
+                string(name: 'TARGET_ENV', defaultValue: 'PROD', description: 'Target deployment environment')
+                }
+             }
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'DOCKERHUB_CREDENTIALS_USR', variable: 'DOCKERHUB_CREDENTIALS_USR'), string(credentialsId: 'DOCKERHUB_CREDENTIALS_PSW', variable: 'DOCKERHUB_CREDENTIALS_PSW')]) {
+                        parallel {
+                            stage('Push API Image') {
+                                steps {
+                                    sh 'docker push $DOCKER_HUB_REPO/api:latest'
+                                }
+                            }
+                            stage('Push Service Image') {
+                                steps {
+                                    sh 'docker push $DOCKER_HUB_REPO/service:latest'
+                                }
+                            }
+                            stage('Push Core Image') {
+                                steps {
+                                    sh 'docker push $DOCKER_HUB_REPO/core:latest'
+                                }
+                            }
+                            stage('Push Data Access Image') {
+                                steps {
+                                    sh 'docker push $DOCKER_HUB_REPO/data-access:latest'
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+
+//         stage('Deploy to Server') {
+//             steps {
+//                 sshagent(['server-ssh-key']) {
+//                     sh '''
+//                         ssh user@your-server '
+//                         docker pull $DOCKER_HUB_REPO/api:latest &&
+//                         docker pull $DOCKER_HUB_REPO/service:latest &&
+//                         docker pull $DOCKER_HUB_REPO/core:latest &&
+//                         docker pull $DOCKER_HUB_REPO/data-access:latest &&
+//                         docker-compose up -d'
+//                     '''
+//                 }
+//             }
+//         }
     }
 
     post {
-		success {
-			echo 'Pipeline succeeded!'
+        success {
+            echo 'Build and Deployment Successful!'
         }
         failure {
-			echo 'Pipeline failed!'
+            echo 'Build Failed! Check the logs.'
         }
     }
 }
